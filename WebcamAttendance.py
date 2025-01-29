@@ -106,6 +106,7 @@ while True:
         drawRect(img, name, x1, y1, x2, y2)
             
     cv2.imshow('webcam', img)
+    # quit on 'q'
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
             
