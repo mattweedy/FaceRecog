@@ -7,6 +7,7 @@ from datetime import datetime
 from VideoGrab import VideoGrab
 from VideoShow import VideoShow
 from CountsPerSec import CountsPerSec
+from FrameProcessor import FrameProcessor
 
 # implementing multithreading from : https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
 
@@ -48,51 +49,21 @@ def compareFaces(encodeCurrFrame, facesCurrFrame, frame):
         # multiply by 4 to get original size
         y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
         drawRect(frame, name, x1, y1, x2, y2)
-    
-def threadVideoGrab(source=0):
-    video_grabber = VideoGrab(source).start()
-    cps = CountsPerSec().start()
-    
-    while True:
-        if (cv2.waitKey(1) == ord('q')) or video_grabber.stopped:
-            video_grabber.stop()
-            break
         
-        frame = video_grabber.frame
-        cv2.putText(frame, "FPS : [{:.0f}]".format(cps.countsPerSec()),(10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.imshow('webcam', frame)
-        cps.increment()
-        
-# def threadVideoShow(source=0):
-
-def threadGrabAndShow(source=0):
+def threadGrabAndProcessAndShow(source=0):
     video_grabber = VideoGrab(source).start()
     video_shower = VideoShow(video_grabber.frame).start()
     cps = CountsPerSec().start()
+    processor = FrameProcessor(video_grabber, video_shower, cps, compareFaces).start()
     
     while True:
-        if video_grabber.stopped or video_shower.stopped:
+        if video_grabber.stopped or video_shower.stopped or processor.stopped:
             video_grabber.stop()
             video_shower.stop()
+            processor.stop()
             break
         
-        frame = video_grabber.frame
-        # ---
-        # success, img = video_grabber.stream.read()
-        # reduce size of image
-        imgSmall = cv2.resize(frame, (0,0), None, 0.25, 0.25)
-        # convert to RGB
-        imgSmall = cv2.cvtColor(imgSmall, cv2.COLOR_BGR2RGB)
-        
-        # find encoding of webcam's current frame
-        facesCurrFrame = face_recognition.face_locations(imgSmall)
-        encodeCurrFrame = face_recognition.face_encodings(imgSmall, facesCurrFrame)
-        # finding matches
-        compareFaces(encodeCurrFrame, facesCurrFrame, frame)
-        # ---
-        cv2.putText(frame, "FPS : [{:.0f}]".format(cps.countsPerSec()),(10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        video_shower.frame = frame
-        cps.increment()
+        cv2.putText(video_shower.frame, "FPS : [{:.0f}]".format(cps.countsPerSec()),(10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
 # encoding process - find encodings for all images
 def findEncodings(images):
@@ -133,61 +104,4 @@ def markAttendance(name):
 encodeListKnownFaces = findEncodings(images)
 print('Encoding Complete') # debug
 
-# third step - find matching between faces
-# coming from webcam
-cap = cv2.VideoCapture(0)
-# cps = CountsPerSec().start()
-
-# threadVideoGrab(0)
-threadGrabAndShow(0)
-
-# get each frame
-# while True:
-#     success, img = cap.read()
-#     # reduce size of image
-#     imgSmall = cv2.resize(img, (0,0), None, 0.25, 0.25)
-#     # convert to RGB
-#     imgSmall = cv2.cvtColor(imgSmall, cv2.COLOR_BGR2RGB)
-    
-#     # find encoding of webcam's current frame
-#     facesCurrFrame = face_recognition.face_locations(imgSmall)
-#     encodeCurrFrame = face_recognition.face_encodings(imgSmall, facesCurrFrame)
-    
-#     # finding matches
-#     # compare all faces to all known faces (encodings)
-#     # TODO: extract this to a function
-#     compareFaces(encodeCurrFrame, facesCurrFrame)
-#     # for encodeFace, faceLoc in zip(encodeCurrFrame, facesCurrFrame):
-#     #     # compare current encodeFace to all known faces
-#     #     matches = face_recognition.compare_faces(encodeListKnownFaces, encodeFace)
-#     #     # find dist
-#     #     faceDis = face_recognition.face_distance(encodeListKnownFaces, encodeFace)
-#     #     print(faceDis)
-#     #     # set index of best match
-#     #     matchIndex = np.argmin(faceDis)
-        
-#     #     # print the name of the match if it exists
-#     #     if matches[matchIndex]:
-#     #         name = classNames[matchIndex].upper()
-#     #         markAttendance(name)
-#     #         # print(f'match found : {name}')
-#     #     else:
-#     #         name = 'Unknown'
-#     #         markAttendance(name)
-#     #         # print(f'match found : {name}')
-
-#     #     # draw rectangle around face
-#     #     y1, x2, y2, x1 = faceLoc
-#     #     # multiply by 4 to get original size
-#     #     y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
-#     #     drawRect(img, name, x1, y1, x2, y2)
-            
-#     # cv2.putText(img, "FPS : [{:.0f}]".format(cps.countsPerSec()),(10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-#     cv2.imshow('webcam', img)
-#     # cps.increment()
-    
-    
-#     # quit on "q"
-#     if cv2.waitKey(1) == ord('q'):
-#         break
-            
+threadGrabAndProcessAndShow(0)
