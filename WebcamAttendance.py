@@ -31,6 +31,18 @@ def findEncodings(images):
         encodeList.append(encode)
     return encodeList
 
+def drawRect(img, name, x1, y1, x2, y2):
+    if name == 'Unknown':
+        rectR, rectG, rectB = 83, 0, 0
+        nameR, nameG, nameB = 254, 32, 32
+    else:
+        rectR, rectG, rectB = 0, 255, 127
+        nameR, nameG, nameB = 255, 255, 255
+    
+    cv2.rectangle(img, (x1, y1), (x2, y2), (rectB, rectG, rectR), 2)
+    cv2.rectangle(img, (x1, y2-35), (x2, y2), (rectB, rectG, rectR), cv2.FILLED)
+    cv2.putText(img, name, (x1+6, y2-6), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6, (nameB, nameG, nameR), 2)
+
 encodeListKnownFaces = findEncodings(images)
 print('Encoding Complete') # debug
 
@@ -61,15 +73,21 @@ while True:
         # set index of best match
         matchIndex = np.argmin(faceDis)
         
+        # print the name of the match if it exists
         if matches[matchIndex]:
             name = classNames[matchIndex].upper()
             print(f'match found : {name}')
+        else:
+            name = 'Unknown'
+            print(f'match found : {name}')
+
+        # draw rectangle around face
+        y1, x2, y2, x1 = faceLoc
+        # multiply by 4 to get original size
+        y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
+        drawRect(img, name, x1, y1, x2, y2)
             
     cv2.imshow('webcam', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
             
-        
-# faceLocTest = face_recognition.face_locations(imgTest)[0]
-# encodeTest = face_recognition.face_encodings(imgTest)[0]
-# cv2.rectangle(imgTest, (faceLocTest[3], faceLocTest[0]), (faceLocTest[1], faceLocTest[2]), (0, 245, 112), 2)
