@@ -4,11 +4,10 @@ import face_recognition
 from threading import Thread
 
 class FrameProcessor:
-    # def __init__(self, video_grabber, video_shower, cps, compareFacesFn, skip_frames=5):
-    def __init__(self, video_grabber, video_shower, cps, compareFacesFn):
+    # def __init__(self, video_grabber, video_shower, compareFacesFn, skip_frames=5):
+    def __init__(self, video_grabber, video_shower, compareFacesFn):
         self.grabber = video_grabber
         self.shower = video_shower
-        self.cps = cps
         self.compareFaces = compareFacesFn
         self.stopped = False
         self.thread = None
@@ -24,24 +23,27 @@ class FrameProcessor:
         while not self.stopped:
             if self.grabber.stopped or self.shower.stopped:
                 break
+        
+            # grab the latest frame
+            frame = self.grabber.frame.copy() # avoid race conditions
             
-            frame = self.grabber.frame
+            # if self.frame_counter % self.skip_frames != 0:
+            #     self.frame_counter += 1
+            #     continue
             
-            imgSmall = cv2.resize(frame, (0,0), None, 0.25, 0.25)
+            # downscale and use HOG for detection
+            imgSmall = cv2.resize(frame, (0,0), fx=0.25, fy=0.25) # 1/4 size
             imgSmall = cv2.cvtColor(imgSmall, cv2.COLOR_BGR2RGB)
-            facesCurrFrame = face_recognition.face_locations(imgSmall)
-            encodeCurrFrame = face_recognition.face_encodings(imgSmall, facesCurrFrame)
-            self.compareFaces(encodeCurrFrame, facesCurrFrame, frame)
-            # process faces every skip_frames frames
-            # for better performance
-            # if self.frame_counter % self.skip_frames == 0:
-            #     imgSmall = cv2.resize(frame, (0,0), None, 0.25, 0.25)
-            #     imgSmall = cv2.cvtColor(imgSmall, cv2.COLOR_BGR2RGB)
-            #     facesCurrFrame = face_recognition.face_locations(imgSmall)
-            #     encodeCurrFrame = face_recognition.face_encodings(imgSmall, facesCurrFrame)
-            #     self.compareFaces(encodeCurrFrame, facesCurrFrame, frame)
             
-            self.cps.increment()
+            # use only face detection (no encoding) for tracking
+            facesCurrFrame = face_recognition.face_locations(imgSmall, model="hog")
+            
+            # only encode faces if motion/new face is detected
+            if len(facesCurrFrame) > 0:
+                encodeCurrFrame = face_recognition.face_encodings(imgSmall, facesCurrFrame, num_jitters=1)
+                self.compareFaces(encodeCurrFrame, facesCurrFrame, frame)
+
+            # update the display frame
             self.shower.frame = frame
             # self.frame_counter += 1
 

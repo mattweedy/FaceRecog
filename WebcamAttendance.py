@@ -6,7 +6,6 @@ from threading import Thread
 from datetime import datetime
 from VideoGrab import VideoGrab
 from VideoShow import VideoShow
-from CountsPerSec import CountsPerSec
 from FrameProcessor import FrameProcessor
 
 # implementing multithreading from : https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
@@ -26,22 +25,24 @@ for fileName in files:
     
 def compareFaces(encodeCurrFrame, facesCurrFrame, frame):
     for encodeFace, faceLoc in zip(encodeCurrFrame, facesCurrFrame):
+        # ensure encodeFace is a numpy arr
+        if isinstance(encodeFace, list):
+            encodeFace = np.array(encodeFace)
+        
         # compare current encodeFace to all known faces
         matches = face_recognition.compare_faces(encodeListKnownFaces, encodeFace)
         # find dist
         faceDis = face_recognition.face_distance(encodeListKnownFaces, encodeFace)
-        print(faceDis)
+        
         # set index of best match
         matchIndex = np.argmin(faceDis)
         
         # print the name of the match if it exists
         if matches[matchIndex]:
             name = classNames[matchIndex].upper()
-            markAttendance(name)
             # print(f'match found : {name}')
         else:
             name = 'Unknown'
-            markAttendance(name)
             # print(f'match found : {name}')
 
         # draw rectangle around face
@@ -49,12 +50,12 @@ def compareFaces(encodeCurrFrame, facesCurrFrame, frame):
         # multiply by 4 to get original size
         y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
         drawRect(frame, name, x1, y1, x2, y2)
+        markAttendance(name)
         
 def threadGrabAndProcessAndShow(source=0):
     video_grabber = VideoGrab(source).start()
     video_shower = VideoShow(video_grabber.frame).start()
-    cps = CountsPerSec().start()
-    processor = FrameProcessor(video_grabber, video_shower, cps, compareFaces).start()
+    processor = FrameProcessor(video_grabber, video_shower, compareFaces).start()
     
     while True:
         if video_grabber.stopped or video_shower.stopped or processor.stopped:
@@ -63,8 +64,6 @@ def threadGrabAndProcessAndShow(source=0):
             processor.stop()
             break
         
-        cv2.putText(video_shower.frame, "FPS : [{:.0f}]".format(cps.countsPerSec()),(10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
 # encoding process - find encodings for all images
 def findEncodings(images):
     encodeList = []
@@ -88,18 +87,20 @@ def drawRect(img, name, x1, y1, x2, y2):
     cv2.putText(img, name, (x1+6, y2-6), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6, (nameB, nameG, nameR), 2)
     
 def markAttendance(name):
-    # TODO: expand functionality here, get creative
-    with open('Logs/Attendance.csv', 'r+') as file:
-        dataList = file.readlines()
-        nameList = []
-        for line in dataList:
-            entry = line.split(',')
-            # entry[0] is the name
-            nameList.append(entry[0])
-        if name not in nameList:
-            now = datetime.now()
-            dtString = now.strftime('%H:%M:%S')
-            file.writelines(f'\n{name},{dtString}')
+    def write_to_file():
+        # TODO: expand functionality here, get creative
+        with open('Logs/Attendance.csv', 'r+') as file:
+            dataList = file.readlines()
+            nameList = []
+            for line in dataList:
+                entry = line.split(',')
+                # entry[0] is the name
+                nameList.append(entry[0])
+            if name not in nameList:
+                now = datetime.now()
+                dtString = now.strftime('%H:%M:%S')
+                file.writelines(f'\n{name},{dtString}')
+    Thread(target=write_to_file).start()
         
 encodeListKnownFaces = findEncodings(images)
 print('Encoding Complete') # debug
