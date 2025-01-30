@@ -66,7 +66,6 @@ ___
 .
 ├── ImagesWebcam/          # Folder containing images of known faces
 ├── Logs/                  # Folder for attendance logs
-├── CountsPerSec.py        # Class for counting frames per second
 ├── FrameProcessor.py      # Class for processing video frames
 ├── VideoGrab.py           # Class for capturing video frames
 ├── VideoShow.py           # Class for displaying video frames
